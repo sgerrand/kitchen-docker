@@ -17,11 +17,10 @@
 require 'erb'
 
 module Kitchen
-
   module Driver
-
+    # Provide context from configuration Hash object
     class DockerERBContext
-      def initialize(config={})
+      def initialize(config = {})
         config.each do |key, value|
           instance_variable_set('@' + key.to_s, value)
         end

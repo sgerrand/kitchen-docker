@@ -22,35 +22,33 @@ require 'net/ssh'
 require File.join(File.dirname(__FILE__), 'docker', 'erb')
 
 module Kitchen
-
   module Driver
-
     # Docker driver for Kitchen.
     #
     # @author Sean Porter <portertech@gmail.com>
     class Docker < Kitchen::Driver::SSHBase
-
-      default_config :binary,        'docker'
-      default_config :socket,        ENV['DOCKER_HOST'] || 'unix:///var/run/docker.sock'
-      default_config :privileged,    false
-      default_config :cap_add,       nil
-      default_config :cap_drop,      nil
-      default_config :security_opt,  nil
-      default_config :use_cache,     true
+      default_config :binary, 'docker'
+      default_config :socket, ENV['DOCKER_HOST'] || 'unix:///var/run/docker.sock'
+      default_config :privileged, false
+      default_config :cap_add, nil
+      default_config :cap_drop, nil
+      default_config :security_opt, nil
+      default_config :use_cache, true
       default_config :remove_images, false
-      default_config :run_command,   '/usr/sbin/sshd -D -o UseDNS=no -o UsePAM=no -o PasswordAuthentication=yes ' +
-                                     '-o UsePrivilegeSeparation=no -o PidFile=/tmp/sshd.pid'
-      default_config :username,      'kitchen'
-      default_config :password,      'kitchen'
-      default_config :tls,           false
-      default_config :tls_verify,    false
-      default_config :tls_cacert,    nil
-      default_config :tls_cert,      nil
-      default_config :tls_key,       nil
-      default_config :publish_all,   false
+      default_config :run_command, '/usr/sbin/sshd -D -o UseDNS=no -o UsePAM=no ' +
+        '-o PasswordAuthentication=yes ' +
+        '-o UsePrivilegeSeparation=no ' + '-o PidFile=/tmp/sshd.pid'
+      default_config :username, 'kitchen'
+      default_config :password, 'kitchen'
+      default_config :tls, false
+      default_config :tls_verify, false
+      default_config :tls_cacert, nil
+      default_config :tls_cert, nil
+      default_config :tls_key, nil
+      default_config :publish_all, false
       default_config :wait_for_sshd, true
-      default_config :private_key,   File.join(Dir.pwd, '.kitchen', 'docker_id_rsa')
-      default_config :public_key,    File.join(Dir.pwd, '.kitchen', 'docker_id_rsa.pub')
+      default_config :private_key, File.join(Dir.pwd, '.kitchen', 'docker_id_rsa')
+      default_config :public_key, File.join(Dir.pwd, '.kitchen', 'docker_id_rsa.pub')
 
       default_config :use_sudo do |driver|
         !driver.remote_socket?
@@ -71,18 +69,17 @@ module Kitchen
       end
 
       def verify_dependencies
-        run_command("#{config[:binary]} >> #{dev_null} 2>&1", :quiet => true)
-        rescue
-          raise UserError,
-          'You must first install the Docker CLI tool http://www.docker.io/gettingstarted/'
+        run_command("#{config[:binary]} >> #{dev_null} 2>&1", quiet: true)
+      rescue
+        raise UserError, 'You must first install the Docker CLI tool http://www.docker.io/gettingstarted/'
       end
 
       def dev_null
-        case RbConfig::CONFIG["host_os"]
+        case RbConfig::CONFIG['host_os']
         when /mswin|msys|mingw|cygwin|bccwin|wince|emc/
-          "NUL"
+          'NUL'
         else
-          "/dev/null"
+          '/dev/null'
         end
       end
 
@@ -105,14 +102,12 @@ module Kitchen
         state[:container_id] = run_container(state) unless state[:container_id]
         state[:hostname] = remote_socket? ? socket_uri.host : 'localhost'
         state[:port] = container_ssh_port(state)
-        wait_for_sshd(state[:hostname], nil, :port => state[:port]) if config[:wait_for_sshd]
+        wait_for_sshd(state[:hostname], nil, port: state[:port]) if config[:wait_for_sshd]
       end
 
       def destroy(state)
         rm_container(state) if container_exists?(state)
-        if config[:remove_images] && state[:image_id]
-          rm_image(state)
-        end
+        rm_image(state) if config[:remove_images] && state[:image_id]
       end
 
       def remote_socket?
@@ -125,21 +120,21 @@ module Kitchen
         URI.parse(config[:socket])
       end
 
-      def docker_command(cmd, options={})
+      def docker_command(cmd, options = {})
         docker = config[:binary].dup
         docker << " -H #{config[:socket]}" if config[:socket]
-        docker << " --tls" if config[:tls]
-        docker << " --tlsverify" if config[:tls_verify]
+        docker << ' --tls' if config[:tls]
+        docker << ' --tlsverify' if config[:tls_verify]
         docker << " --tlscacert=#{config[:tls_cacert]}" if config[:tls_cacert]
         docker << " --tlscert=#{config[:tls_cert]}" if config[:tls_cert]
         docker << " --tlskey=#{config[:tls_key]}" if config[:tls_key]
-        run_command("#{docker} #{cmd}", options.merge(:quiet => !logger.debug?))
+        run_command("#{docker} #{cmd}", options.merge(quiet: !logger.debug?))
       end
 
       def generate_keys
         if !File.exist?(config[:public_key]) || !File.exist?(config[:private_key])
           private_key = OpenSSL::PKey::RSA.new(2048)
-          blobbed_key = Base64.encode64(private_key.to_blob).gsub("\n", '')
+          blobbed_key = Base64.encode64(private_key.to_blob).delete("\n")
           public_key = "ssh-rsa #{blobbed_key} kitchen_docker_key"
           File.open(config[:private_key], 'w') do |file|
             file.write(private_key)
@@ -195,8 +190,7 @@ module Kitchen
             RUN ssh-keygen -A -t dsa -f /etc/ssh/ssh_host_dsa_key
           eos
         else
-          raise ActionFailed,
-          "Unknown platform '#{config[:platform]}'"
+          fail ActionFailed, "Unknown platform '#{config[:platform]}'"
         end
 
         username = config[:username]
@@ -245,19 +239,18 @@ module Kitchen
             return line.split(/\s+/).last
           end
         end
-        raise ActionFailed,
-        'Could not parse Docker build output for image ID'
+        fail ActionFailed, 'Could not parse Docker build output for image ID'
       end
 
-      def build_image(state)
-        cmd = "build"
-        cmd << " --no-cache" unless config[:use_cache]
+      def build_image(_state)
+        cmd = 'build'
+        cmd << ' --no-cache' unless config[:use_cache]
         dockerfile_contents = dockerfile
         build_context = config[:build_context] ? '.' : '-'
         output = create_tempfile('Dockerfile-kitchen-', Dir.pwd) do |file|
           file.write(dockerfile_contents)
           file.close
-          docker_command("#{cmd} -f #{file.path} #{build_context}", :input => dockerfile_contents)
+          docker_command("#{cmd} -f #{file.path} #{build_context}", input: dockerfile_contents)
         end
         parse_image_id(output)
       end
@@ -273,32 +266,31 @@ module Kitchen
       def parse_container_id(output)
         container_id = output.chomp
         unless [12, 64].include?(container_id.size)
-          raise ActionFailed,
-          'Could not parse Docker run output for container ID'
+          fail ActionFailed, 'Could not parse Docker run output for container ID'
         end
         container_id
       end
 
       def build_run_command(image_id)
-        cmd = "run -d -p 22"
-        Array(config[:forward]).each {|port| cmd << " -p #{port}"}
-        Array(config[:dns]).each {|dns| cmd << " --dns #{dns}"}
-        Array(config[:add_host]).each {|host, ip| cmd << " --add-host=#{host}:#{ip}"}
-        Array(config[:volume]).each {|volume| cmd << " -v #{volume}"}
-        Array(config[:volumes_from]).each {|container| cmd << " --volumes-from #{container}"}
-        Array(config[:links]).each {|link| cmd << " --link #{link}"}
-        Array(config[:devices]).each {|device| cmd << " --device #{device}"}
+        cmd = 'run -d -p 22'
+        Array(config[:forward]).each { |port| cmd << " -p #{port}" }
+        Array(config[:dns]).each { |dns| cmd << " --dns #{dns}" }
+        Array(config[:add_host]).each { |host, ip| cmd << " --add-host=#{host}:#{ip}" }
+        Array(config[:volume]).each { |volume| cmd << " -v #{volume}" }
+        Array(config[:volumes_from]).each { |container| cmd << " --volumes-from #{container}" }
+        Array(config[:links]).each { |link| cmd << " --link #{link}" }
+        Array(config[:devices]).each { |device| cmd << " --device #{device}" }
         cmd << " --name #{config[:instance_name]}" if config[:instance_name]
-        cmd << " -P" if config[:publish_all]
+        cmd << ' -P' if config[:publish_all]
         cmd << " -h #{config[:hostname]}" if config[:hostname]
         cmd << " -m #{config[:memory]}" if config[:memory]
         cmd << " -c #{config[:cpu]}" if config[:cpu]
         cmd << " -e http_proxy=#{config[:http_proxy]}" if config[:http_proxy]
         cmd << " -e https_proxy=#{config[:https_proxy]}" if config[:https_proxy]
-        cmd << " --privileged" if config[:privileged]
-        Array(config[:cap_add]).each {|cap| cmd << " --cap-add=#{cap}"} if config[:cap_add]
-        Array(config[:cap_drop]).each {|cap| cmd << " --cap-drop=#{cap}"} if config[:cap_drop]
-        Array(config[:security_opt]).each {|opt| cmd << " --security-opt=#{opt}"} if config[:security_opt]
+        cmd << ' --privileged' if config[:privileged]
+        Array(config[:cap_add]).each { |cap| cmd << " --cap-add=#{cap}" } if config[:cap_add]
+        Array(config[:cap_drop]).each { |cap| cmd << " --cap-drop=#{cap}" } if config[:cap_drop]
+        Array(config[:security_opt]).each { |opt| cmd << " --security-opt=#{opt}" } if config[:security_opt]
         cmd << " #{image_id} #{config[:run_command]}"
         cmd
       end
@@ -310,27 +302,22 @@ module Kitchen
       end
 
       def container_exists?(state)
-        state[:container_id] && !!docker_command("top #{state[:container_id]}") rescue false
+        state[:container_id] && !!docker_command("top #{state[:container_id]}")
+      rescue false
       end
 
       def parse_container_ssh_port(output)
-        begin
-          host, port = output.split(':')
-          port.to_i
-        rescue
-          raise ActionFailed,
-          'Could not parse Docker port output for container SSH port'
-        end
+        _, port = output.split(':')
+        port.to_i
+      rescue
+        raise ActionFailed, 'Could not parse Docker port output for container SSH port'
       end
 
       def container_ssh_port(state)
-        begin
-          output = docker_command("port #{state[:container_id]} 22/tcp")
-          parse_container_ssh_port(output)
-        rescue
-          raise ActionFailed,
-          'Docker reports container has no ssh port mapped'
-        end
+        output = docker_command("port #{state[:container_id]} 22/tcp")
+        parse_container_ssh_port(output)
+      rescue
+        raise ActionFailed, 'Docker reports container has no ssh port mapped'
       end
 
       def rm_container(state)
