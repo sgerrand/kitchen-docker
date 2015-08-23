@@ -259,7 +259,7 @@ module Kitchen
         if Tempfile.respond_to?(:create)
           Tempfile.create(basename, dir)
         else
-          Tempfile.new(basename, dir)
+          File.new(File.join(dir, %(basename#{Time.new.strftime('%Y%m%d-%H%M%S')})), 'w')
         end
       end
 

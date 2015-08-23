@@ -7,18 +7,24 @@ addons:
   apt:
     packages:
       - build-essential
+      - zlib1g-dev
 
 language: ruby
 
 rvm:
-- 2.2.3
-- 2.1.6
+- 2.1.7
 - 2.0.0
 - 1.9.3
-- 1.9.2
 - ruby-head
+
+env:
+  global:
+    - KITCHEN_ARGS="--destroy=always"
+  matrix:
+    - KITCHEN_REGEXP=centos
+    - KITCHEN_REGEXP=debian
+    - KITCHEN_REGEXP=ubuntu
 
 matrix:
   allow_failures:
   - rvm: ruby-head
-  - rvm: 1.9.2
